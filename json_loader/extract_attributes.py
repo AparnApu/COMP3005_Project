@@ -1,9 +1,8 @@
-# 
 ###############################################################################################
 # Aparna Apu
 # 101194937
 
-# ELie Feghali
+# Elie Feghali
 # 101185489
 
 # COMP 3005 Project (Version 1)
@@ -11,29 +10,41 @@
 
 # Citations
 # https://stackoverflow.com/questions/25231989/how-to-check-if-a-variable-is-a-dictionary-in-python
-# 
-#  
 ###############################################################################################
 
 import os
 import json
 
+###############################################################################################
+# Get files relevant to our seasons
+    # La Liga 2018/2019, 2019/2020, 2020/2021 and Premier League 2003/2004
+
+# Match ID's correspond to event folder JSON ID's
+###############################################################################################
+
 def getRelevantFiles():
 
     path_to_data = "/home/student/Documents/comp3005/project_v1/open-data/data/matches"
 
+    # Seasons
+    # 2018/2019, 2019/2020, 2020/2021, 2003/2004
     relevant_seasons = ["44.json", "4.json", "42.json", "90.json"]
+    
+    # Leagues
+    # La Liga and Premier League
     relevant_comp_id = ["2", "11"]
+
+    # Relevant files 
     relevant_match_ids = []
 
     for folder in os.listdir(path_to_data):
-
+        # Filter on folder (PL, LL)
         if (folder in relevant_comp_id):
             folder_path = os.path.join(path_to_data, folder)
 
             for file in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, file)
-                
+                # Filter on file 
                 if (file in relevant_seasons):
                     with open(file_path, 'r') as f:
                         matches_table_data = json.load(f)
@@ -43,6 +54,9 @@ def getRelevantFiles():
                         
     return relevant_match_ids
 
+###############################################################################################
+# Get all attributes for a type of file
+###############################################################################################
 
 def extract_attributes():
 
@@ -99,4 +113,5 @@ def extract_attributes():
         else:
             print(attribute)
 
+# Call the functions
 extract_attributes()

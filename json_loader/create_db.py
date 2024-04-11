@@ -2,7 +2,7 @@
 # Aparna Apu
 # 101194937
 
-# ELie Feghali
+# Elie Feghali
 # 101185489
 
 # COMP 3005 Project (Version 1)
@@ -64,7 +64,7 @@ def getRelevantFiles():
     return relevant_match_ids
 
 ###############################################################################################
-# Create the tables
+# Create the competitions table and populate it
 # TO DO - filter season
 ###############################################################################################
 
@@ -119,7 +119,7 @@ def setupCompetitions():
 
 
 ###############################################################################################
-# Create the tables
+# Create the event (and related) tables and populate it
 ###############################################################################################
 
 def setupEvents():
@@ -422,6 +422,9 @@ def setupEvents():
 
         conn.commit()
 
+###############################################################################################
+# This can potentially be removed as we have it on another file
+###############################################################################################
 
 def extract_attributes():
 
@@ -462,11 +465,14 @@ def extract_attributes():
     # print()
     print(pass_attr)
 
+###############################################################################################
+# Main function
+###############################################################################################
 def main():
 
     # setupCompetitions()
     # setupEvents()
-    extract_attributes()
+    # extract_attributes()
     conn.close()
 
 if __name__ == "__main__":
