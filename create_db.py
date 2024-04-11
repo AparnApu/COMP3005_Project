@@ -164,6 +164,7 @@ def setupEvents():
         PRIMARY KEY (id)
     );
 
+    
     CREATE TABLE IF NOT EXISTS passHeight (
         id INTEGER NOT NULL,
         name TEXT,
@@ -214,6 +215,8 @@ def setupEvents():
         duration FLOAT,
         location FLOAT[],
         carry_end_location FLOAT[],
+        counterpress BIT,
+        recovery_failure BIT,
 
         PRIMARY KEY (id),
 
@@ -259,6 +262,42 @@ def setupEvents():
         FOREIGN KEY (skillTypeId) REFERENCES skillType(id),
         FOREIGN KEY (outcomeId) REFERENCES outcome(id),
         FOREIGN KEY (eventId) REFERENCES events(id)
+    );
+
+
+    CREATE TABLE IF NOT EXISTS freeze_frame (
+        location FLOAT NOT NULL,
+        playerId INTEGER NOT NULL,
+        positionId INTEGER NOT NULL,
+        eventId UUID NOT NULL,
+        teammate BIT NOT NULL,
+
+        PRIMARY KEY (location, PlayerId, positionId),
+        FOREIGN KEY (playerId) REFERENCES player(id),
+        FOREIGN KEY (positionId) REFERENCES position(id),
+        FOREIGN KEY (eventId) REFERENCES events(id)
+    );
+
+    
+    CREATE TABLE IF NOT EXISTS shots (
+        statsbomb_xg FLOAT NOT NULL,
+        end_location FLOAT[] NOT NULL,
+        key_pass_id UUID,
+        bodyPartId INTEGER NOT NULL,
+        skillTypeId INTEGER NOT NULL,
+        outcomeId INTEGER,
+        first_time BIT,
+        aerial_won BIT,
+        open_goal BIT,
+        redirect BIT,
+        deflected BIT,
+        one_on_one BIT,
+        saved_to_post BIT,
+        follows_dribble BIT,
+        saved_off_target BIT,
+        techniqueId INTEGER,
+
+        
     );
 
 
@@ -395,26 +434,40 @@ def extract_attributes():
 
     pass_attr = set()
 
+    tmp = []
 
     for file in os.listdir(path_to_data):
         if file in relevantEventFiles:
             if file.endswith(".json"):
                 file_path = os.path.join(path_to_data, file)
+                tmp.append(file_path)
                 with open(file_path, 'r') as file:
                     events_table_data = json.load(file)
-
                     for entity in events_table_data:
+                        if 'ball_recovery' in entity:
+                            pass_attr.update(entity['ball_recovery'].keys())
 
-                        if 'pass' in entity:
-                            pass_attr.update(entity['pass'].keys())
+                            # pass_attr.update(entity['shot'].keys())
 
+                            # if 'saved_off_target' in entity['shot']:
+                            #     print("Saved OFF TARGET")
+                            #     print(file_path)
+                            #     break
+                            
+                            # if 'follows_dribble' in entity['shot']:
+                            #     print("FOLLOWS DRIBLE")
+                            #     print(file_path)
+                            #     break
+
+    # print(tmp)
+    # print()
     print(pass_attr)
 
 def main():
 
     # setupCompetitions()
-    setupEvents()
-    # extract_attributes()
+    # setupEvents()
+    extract_attributes()
     conn.close()
 
 if __name__ == "__main__":
