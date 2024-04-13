@@ -20,7 +20,8 @@
 
 import os
 import json
-import psycopg
+import psycopg2
+import psycopg2.extras
 
 # Database connection parameters
 dbname = "Soccer"
@@ -32,7 +33,7 @@ port = "5432"
 db_password = "postgres"
 
 # Connect to the database via the database connection parameters
-conn = psycopg.connect(f"dbname={dbname} user={user} host={host} port={port} password={db_password}")
+conn = psycopg2.connect(f"dbname={dbname} user={user} host={host} port={port} password={db_password}")
 
 ##########################################################################################################################
 # Purpose: Helper function to get relevant "event" and "lineup" files
@@ -175,14 +176,14 @@ def setupMatches():
     relevant_seasons = ["4.json", "42.json", "44.json", "90.json"]
 
     # To filter on competition (folder) 
-    relevant_comps = [2, 11]
+    relevant_comps = ["2", "11"]
 
     # Create the tables (DDL)
 
-    competitions_ddl = """
-        CREATE TABLE IF NOT EXISTS competitionStage (
+    matches_ddl = """
+    CREATE TABLE IF NOT EXISTS competitionStage (
         stage_id INTEGER NOT NULL,
-        stage_name TEXT NOT NULL
+        stage_name TEXT NOT NULL,
 
         PRIMARY KEY (stage_id)
     );
@@ -207,7 +208,7 @@ def setupMatches():
     CREATE TABLE IF NOT EXISTS referee (
         referee_id INTEGER NOT NULL,
         referee_name TEXT NOT NULL,
-        countryID INTEGER NOT NULL
+        countryID INTEGER NOT NULL,
 
         PRIMARY KEY (referee_id),
 
@@ -232,12 +233,10 @@ def setupMatches():
         team_gender TEXT, 
         team_group TEXT,
         countryID INTEGER,
-        managersID INTEGER,
 
         PRIMARY KEY (team_id),
 
-        FOREIGN KEY (countryID) references country(country_id),
-        FOREIGN KEY (managersID) references manager(manager),
+        FOREIGN KEY (countryID) references country(country_id)
     );
 
     CREATE TABLE IF NOT EXISTS team_manager_link (
@@ -247,10 +246,10 @@ def setupMatches():
         PRIMARY KEY (team_id, manager_id)
     );
 
-    CREATE TABLE IF NOT EXISTS match (
+    CREATE TABLE IF NOT EXISTS matches (
         match_id INTEGER NOT NULL,
         match_date TEXT,
-        kick_of TIME(3),
+        kick_off TIME(3),
         competitionID INTEGER, 
         seasonID INTEGER, 
         home_teamID INTEGER, 
@@ -264,37 +263,153 @@ def setupMatches():
 
         PRIMARY KEY (match_id),
 
-        FOREIGN KEY (competitionID) references competition(competition_id),
-        FOREIGN KEY (seasonID) references competition(season_id),
+        FOREIGN KEY (competitionID, seasonID) references competitions(competition_id, season_id),
         FOREIGN KEY (home_teamID) references teams(team_id),
         FOREIGN KEY (away_teamID) references teams(team_id),
         FOREIGN KEY (stadiumID) references stadium(stadium_id),
-        FOREIGN KEY (refereeID) references referee(referee_id),
+        FOREIGN KEY (refereeID) references referee(referee_id)
     );
     """
 
-    competitions_dml = """
-    INSERT INTO competitions (competition_id, season_id, country_name, competition_name, competition_gender, competition_youth, competition_international, season_name)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
-    ON CONFLICT (competition_id, season_id) DO NOTHING;
+    competition_stage_dml = """
+    INSERT INTO competitionStage (stage_id, stage_name)
+    VALUES (%s, %s) 
+    ON CONFLICT (stage_id) DO NOTHING;
     """
 
-    for folder in os.listdir(path_to_data):
-        # Filter on folder (PL, LL)
-        if (folder in relevant_comps):
-            folder_path = os.path.join(path_to_data, folder)
-            for file in os.listdir(folder_path):
-                file_path = os.path.join(folder_path, file)
-                # Filter on file 
-                if (file in relevant_seasons):
-                    with open(file_path, 'r') as f:
-                        matches_table_data = json.load(f)
+    country_dml = """
+    INSERT INTO country (country_id, country_name)
+    VALUES (%s, %s) 
+    ON CONFLICT (country_id) DO NOTHING;
+    """
 
-                        for match in matches_table_data:
-                            pass
+    stadium_dml = """
+    INSERT INTO stadium (stadium_id, stadium_name, countryID)
+    VALUES (%s, %s, %s) 
+    ON CONFLICT (stadium_id) DO NOTHING;
+    """
 
+    referee_dml = """
+    INSERT INTO referee (referee_id, referee_name, countryID)
+    VALUES (%s, %s, %s) 
+    ON CONFLICT (referee_id) DO NOTHING;
+    """
 
+    manager_dml = """
+    INSERT INTO manager (manager_id, manager_name, manager_nickname, manager_dob, countryID)
+    VALUES (%s, %s, %s, %s, %s) 
+    ON CONFLICT (manager_id) DO NOTHING;
+    """
 
+    teams_dml = """
+    INSERT INTO teams (team_id, team_name, team_gender, team_group, countryID)
+    VALUES (%s, %s, %s, %s, %s) 
+    ON CONFLICT (team_id) DO NOTHING;
+    """
+
+    team_manager_link_dml = """
+    INSERT INTO team_manager_link (team_id, manager_id)
+    VALUES (%s, %s) 
+    ON CONFLICT (team_id, manager_id) DO NOTHING;
+    """
+
+    matches_dml = """
+    INSERT INTO matches (match_id, match_date, kick_off, competitionID, seasonID, home_teamID, away_teamID, home_score, away_score, match_week, competition_stageID, stadiumID, refereeID)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+    ON CONFLICT (match_id) DO NOTHING;
+    """
+    
+    with conn.cursor() as cursor:
+
+        # Create the matches and its related tables
+        cursor.execute(matches_ddl)
+        
+        for folder in os.listdir(path_to_data):
+            # Filter on folder (PL, LL)
+            if (folder in relevant_comps):
+                folder_path = os.path.join(path_to_data, folder)
+                for file in os.listdir(folder_path):
+                    file_path = os.path.join(folder_path, file)
+                    # Filter on file 
+                    if (file in relevant_seasons):
+                        with open(file_path, 'r') as f:
+                            matches_table_data = json.load(f)
+
+                            for match in matches_table_data:
+
+                                # competitionStage
+                                cursor.execute(competition_stage_dml, (
+                                match['competition_stage']['id'],
+                                match['competition_stage']['name']))
+
+                                # country
+                                both_teams = ['home_team', 'away_team']
+
+                                for team_type in both_teams:
+                                    team = match[team_type]
+                                    cursor.execute(country_dml, (
+                                    team['country']['id'],
+                                    team['country']['name']))
+
+                                    cursor.execute(teams_dml, (
+                                    team[team_type + '_id'],
+                                    team[team_type + '_name'],
+                                    team[team_type + '_gender'],
+                                    team[team_type + '_group'],
+                                    team['country']['id']))
+
+                                    for manager in team.get('managers', []):
+                                        cursor.execute(country_dml, (
+                                        manager['country']['id'],
+                                        manager['country']['name']))
+
+                                        cursor.execute(manager_dml, (
+                                        manager['id'],
+                                        manager['name'],
+                                        manager['nickname'],
+                                        manager['dob'],
+                                        manager['country']['id']))
+
+                                        cursor.execute(team_manager_link_dml, (
+                                        team[team_type + '_id'],
+                                        manager['id']))
+
+                                if 'stadium' in match:
+                                    cursor.execute(country_dml, (
+                                    match['stadium']['country']['id'],
+                                    match['stadium']['country']['name']))
+
+                                    cursor.execute(stadium_dml, (
+                                    match['stadium']['id'],
+                                    match['stadium']['name'],
+                                    match['stadium']['country']['id']))
+
+                                if 'referee' in match:
+                                    cursor.execute(country_dml, (
+                                    match['referee']['country']['id'],
+                                    match['referee']['country']['name']))
+
+                                    cursor.execute(referee_dml, (
+                                    match['referee']['id'],
+                                    match['referee']['name'],
+                                    match['referee']['country']['id']))
+                                
+                                cursor.execute(matches_dml, (
+                                match['match_id'],
+                                match['match_date'],
+                                match['kick_off'],
+                                match['competition']['competition_id'],
+                                match['season']['season_id'],
+                                match['home_team']['home_team_id'],
+                                match['away_team']['away_team_id'],
+                                match['home_score'],
+                                match['away_score'],
+                                match['match_week'],
+                                match['competition_stage']['id'],
+                                match.get('stadium', {}).get('id', None),
+                                match.get('referee', {}).get('id', None)))
+        
+        conn.commit()
 
     print (" done!")
 
@@ -305,7 +420,7 @@ def setupMatches():
 def main():
 
     setupCompetitions()
-    setupEvents()
+    #setupEvents()
     setupMatches()
     conn.close()
 

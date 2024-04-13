@@ -366,10 +366,10 @@ CREATE TABLE IF NOT EXISTS team_manager_link (
 );
 
 
-CREATE TABLE IF NOT EXISTS match (
+CREATE TABLE IF NOT EXISTS matches (
     match_id INTEGER NOT NULL,
     match_date TEXT,
-    kick_of TIME(3),
+    kick_off TIME(3),
     competitionID INTEGER, 
     seasonID INTEGER, 
     home_teamID INTEGER, 
